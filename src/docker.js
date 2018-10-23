@@ -8,34 +8,39 @@ const fs = require('fs');
 const childProcess = require('child_process');
 const sleep = require('./utils/sleep');
 const log = require('./utils/log');
-const composer = require('./composer/composer');
+const composer = require('./admin');
 
 process.env.ARCH = uname().machine;
 
 function execDocker(container, command, options) {
-  return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
 
-    const childProc = childProcess.exec('docker exec ' + container + ' ' + command, {
-      cwd: options.cwd
+        const childProc = childProcess.exec('docker exec ' + container + ' ' + command, {
+            cwd: options.cwd
+        });
+
+        childProc.on('error', err => {
+            reject(err);
+        });
+
+        childProc.on('close', () =>{
+            resolve();
+        });
+
+        if(options.log) {
+            childProc.stdout.on('data', (d) => {
+                log.debug(String(d));
+            });
+
+            childProc.stderr.on('data', (d) => {
+                log.debug(String(d));
+            });
+        }
     });
-
-    childProc.on('error', err => {
-      reject(err)
-    });
-
-    childProc.on('close', () =>{
-      resolve();
-    });
-
-    if(options.log) {
-      childProc.stdout.pipe(process.stdout);
-      childProc.stderr.pipe(process.stderr);
-    }
-  });
 }
 
 function createCacheFiles(cacheDir, cacheFile) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         fs.lstat(cacheDir, (error, statDir) => {
             if(!statDir || !statDir.isDirectory()) {
                 fs.mkdir(cacheDir);
@@ -89,19 +94,19 @@ module.exports = {
         await composer.enrollAdmin(cacheDir);
 
         log.info('All Done!');
-  },
+    },
 
-  down: async (logLevel) => {
-      log.info('Stoping servers...');
-      try {
-          const cacheFile = await fs.readFileSync(path.join(__dirname, '.cache', 'pathToDockerComposeFile'), 'utf-8');
-          await compose.down({cwd: cacheFile, log: (logLevel > 4)});
-          log.info('Done!');
+    down: async (logLevel) => {
+        log.info('Stoping servers...');
+        try {
+            const cacheFile = await fs.readFileSync(path.join(__dirname, '.cache', 'pathToDockerComposeFile'), 'utf-8');
+            await compose.down({cwd: cacheFile, log: (logLevel > 4)});
+            log.info('Done!');
 
-      } catch(e) {
-          log.info('Nothing to do here...');
-      }
+        } catch(e) {
+            log.info('Nothing to do here...');
+        }
 
-  }
+    }
 
-}
+};
